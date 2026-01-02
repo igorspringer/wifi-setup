@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <title>Orange Pi WiFi Setup</title>
+</head>
+<body>
+    <div class="container">
+  <h1>📡 Wi-Fi налаштування</h1>
+
+  <button onclick="scanWifi()">🔍 Сканувати Wi-Fi</button>
+
+  <ul id="wifi-list"></ul>
+
+  <input id="ssid" placeholder="SSID" readonly>
+  <input id="password" type="password" placeholder="Пароль">
+  <button onclick="connect()">🔗 Підключитись</button>
+</div>
+
+    <style>
+:root {
+  --bg: #0f1115;
+  --card: #1c1f26;
+  --text: #eaeaea;
+  --muted: #9aa0a6;
+  --accent: #4caf50;
+  --hover: #2a2f3a;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.container {
+  max-width: 420px;
+  margin: auto;
+  padding: 16px;
+}
+
+h1 {
+  text-align: center;
+  font-size: 1.4rem;
+}
+
+button {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  background: var(--accent);
+  color: #000;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+button:active {
+  opacity: 0.8;
+}
+
+#wifi-list {
+  list-style: none;
+  padding: 0;
+  margin-top: 16px;
+}
+
+#wifi-list li {
+  background: var(--card);
+  margin-bottom: 10px;
+  padding: 14px;
+  border-radius: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
+
+#wifi-list li:hover {
+  background: var(--hover);
+}
+
+#wifi-list li.active {
+  outline: 2px solid var(--accent);
+}
+
+.ssid {
+  font-size: 1rem;
+}
+
+.meta {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.signal {
+  font-size: 0.9rem;
+}
+
+input {
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+  border-radius: 10px;
+  border: none;
+  background: var(--card);
+  color: var(--text);
+  font-size: 1rem;
+}
+</style>
+
+    <script>
+let autoScanTimer = null;
+
+function signalIcon(level) {
+  if (level > 80) return "▂▄▆█";
+  if (level > 60) return "▂▄▆";
+  if (level > 40) return "▂▄";
+  return "▂";
+}
+
+function scanWifi() {
+  fetch("/scan")
+    .then(r => r.json())
+    .then(data => {
+      const list = document.getElementById("wifi-list");
+      list.innerHTML = "";
+
+      data.forEach(net => {
+        const li = document.createElement("li");
+        if (net.in_use) li.classList.add("active");
+
+        li.onclick = () => {
+          document.getElementById("ssid").value = net.ssid;
+        };
+
+        li.innerHTML = `
+          <div>
+            <div class="ssid">
+              ${net.ssid}
+              ${net.secure ? "🔒" : ""}
+              ${net.in_use ? " ⭐" : ""}
+            </div>
+            <div class="meta">${net.signal}%</div>
+          </div>
+          <div class="signal">${signalIcon(net.signal)}</div>
+        `;
+
+        list.appendChild(li);
+      });
+    });
+}
+
+/* 🔄 автооновлення кожні 10 секунд */
+function startAutoScan() {
+  scanWifi();
+  autoScanTimer = setInterval(scanWifi, 10000);
+}
+
+window.onload = startAutoScan;
+</script>
+</body>
+</html>
