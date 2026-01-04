@@ -1,0 +1,13 @@
+[Unit]
+After=network.target NetworkManager.service
+
+
+[Service]
+User=root
+WorkingDirectory=/home/yoghurt/wifi-setup
+ExecStart=/home/yoghurt/wifi-setup/venv/bin/gunicorn -c gunicorn.conf.py app:app
+Restart=always
+
+
+[Install]
+WantedBy=multi-user.target

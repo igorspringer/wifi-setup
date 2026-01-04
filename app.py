@@ -1,6 +1,5 @@
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request
 import subprocess
-from flask import request
 
 app = Flask(__name__)
 
@@ -65,4 +64,4 @@ def connect():
 
 if __name__ == "__main__":
     pass
-#    app.run(host="0.0.0.0", port=8080)
+#    app.run(host="0.0.0.0", port=80)
