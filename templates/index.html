@@ -6,17 +6,47 @@
     <link rel="stylesheet" href="static/style.css">
 </head>
 <body>
-    <div class="container">
-  <h1>📡 Wi-Fi налаштування</h1>
+  <div class="container">
+    <h1>📡 Wi-Fi налаштування</h1>
 
-  <button onclick="scanWifi()">🔍 Сканувати Wi-Fi</button>
+    <button onclick="scanWifi()">🔍 Сканувати Wi-Fi</button>
 
-  <ul id="wifi-list"></ul>
+    <ul id="wifi-list"></ul>
 
-  <input id="ssid" placeholder="SSID" readonly>
-  <input id="password" type="password" placeholder="Пароль">
-  <button onclick="connect()">🔗 Підключитись</button>
-</div>
+    <input id="ssid" placeholder="SSID" readonly>
+    <input id="password" type="password" placeholder="Пароль">
+    <button onclick="connect()">🔗 Підключитись</button>
+
+    <hr>
+
+    <h3>Мережеві налаштування</h3>
+
+    <button id="static-ip-btn">
+      Перейти на статичний IP
+    </button>
+
+    <p id="static-ip-status"></p>
+
+    <hr>
+
+    <h3>Мережеві дії</h3>
+
+    <button id="dhcp-btn">
+      Повернути DHCP
+    </button>
+
+    <p id="dhcp-status"></p>
+
+    <hr>
+
+    <h3>Поточні мережеві налаштування</h3>
+
+    <div id="net-info">
+      <div>IP: <span id="cur-ip">—</span></div>
+      <div>Gateway: <span id="cur-gw">—</span></div>
+      <div>DNS: <span id="cur-dns">—</span></div>
+    </div>
+  </div>
 
 <script>
   let autoScanTimer = null;
@@ -67,6 +97,45 @@
   }
 
   window.onload = startAutoScan;
+</script>
+
+<script>
+document.getElementById("static-ip-btn").onclick = async () => {
+  const res = await fetch("/set_static_ip", { method: "POST" });
+  const data = await res.json();
+  document.getElementById("static-ip-status").innerText = data.message;
+};
+</script>
+
+<script>
+document.getElementById("dhcp-btn").onclick = async () => {
+  document.getElementById("dhcp-status").innerText = "Застосування DHCP...";
+  try {
+    const r = await fetch("/set_dhcp", { method: "POST" });
+    const d = await r.json();
+    document.getElementById("dhcp-status").innerText = d.message;
+  } catch {
+    document.getElementById("dhcp-status").innerText = "Помилка запиту";
+  }
+};
+</script>
+
+<script>
+  async function loadNetStatus() {
+    try {
+      const r = await fetch("/network_status");
+      const d = await r.json();
+
+      document.getElementById("cur-ip").innerText = d.ip || "—";
+      document.getElementById("cur-gw").innerText = d.gateway || "—";
+      document.getElementById("cur-dns").innerText = d.dns || "—";
+    } catch {
+      document.getElementById("cur-ip").innerText = "error";
+    }
+  }
+
+  loadNetStatus();
+  setInterval(loadNetStatus, 5000);
 </script>
 </body>
 </html>
