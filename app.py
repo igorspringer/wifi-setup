@@ -1,7 +1,51 @@
 from flask import Flask, render_template, jsonify, request
 import subprocess
+import threading
+import time
+import ipaddress
 
 app = Flask(__name__)
+
+ROLLBACK_TIMEOUT = 60
+rollback_timer = None
+
+def set_static_ip(ip, gateway, dns):
+    subprocess.run([
+        "nmcli", "con", "mod", "netplan-wlan0",
+        "ipv4.method", "manual",
+        "ipv4.addresses", f"{ip}/24",
+        "ipv4.gateway", gateway,
+        "ipv4.dns", dns
+    ], check=True)
+
+    subprocess.run(["nmcli", "con", "up", "netplan-wlan0"], check=True)
+
+def rollback_to_dhcp():
+    subprocess.run([
+        "nmcli", "con", "mod", "netplan-wlan0",
+        "ipv4.method", "auto"
+    ])
+    subprocess.run(["nmcli", "con", "up", "netplan-wlan0"])
+
+def start_rollback_timer():
+    global rollback_timer
+
+    if rollback_timer:
+        rollback_timer.cancel()
+
+    rollback_timer = threading.Timer(ROLLBACK_TIMEOUT, rollback_to_dhcp)
+    rollback_timer.start()
+
+def get_active_wifi_connection():
+    r = subprocess.check_output(
+        ["nmcli", "-t", "-f", "NAME,DEVICE", "con", "show", "--active"],
+        text=True
+    )
+    for line in r.splitlines():
+        name, dev = line.split(":")
+        if dev == "wlan0":
+            return name
+    raise RuntimeError("Active Wi-Fi connection not found")
 
 @app.route("/")
 def index():
@@ -62,46 +106,52 @@ def connect():
 
     return f"Підключено до {ssid}"
 
-@app.route("/set_static_ip", methods=["POST"])
+@app.route("/set-static-ip", methods=["POST"])
 def set_static_ip():
+    data = request.get_json(force=True)
+
+    ip = data.get("ip")
+    gateway = data.get("gateway")
+    dns = data.get("dns")
+
+    # 🔐 базова валідація
     try:
-        # визначаємо активне Wi-Fi підключення
-        con = subprocess.check_output(
-            ["nmcli", "-t", "-f", "NAME,DEVICE", "con", "show", "--active"],
-            text=True
-        )
+        ipaddress.ip_address(ip)
+        ipaddress.ip_address(gateway)
+        if dns:
+            ipaddress.ip_address(dns)
+    except ValueError:
+        return jsonify(error="Invalid IP format"), 400
 
-        wifi_con = None
-        for line in con.splitlines():
-            name, dev = line.split(":")
-            if dev == "wlan0":
-                wifi_con = name
-                break
+    try:
+        conn = get_active_wifi_connection()
 
-        if not wifi_con:
-            return {"message": "Активне Wi-Fi підключення не знайдено"}, 400
-
-        # ⚠️ ЗАДАЙ СВОЇ ПАРАМЕТРИ
-        STATIC_IP = "10.10.38.50/24"
-        GATEWAY = "10.10.38.1"
-        DNS = "8.8.8.8 1.1.1.1"
-
+        # 1️⃣ встановлюємо static IP
         subprocess.run(
-            ["nmcli", "con", "mod", wifi_con,
-             "ipv4.method", "manual",
-             "ipv4.addresses", STATIC_IP,
-             "ipv4.gateway", GATEWAY,
-             "ipv4.dns", DNS],
+            [
+                "nmcli", "con", "mod", conn,
+                "ipv4.method", "manual",
+                "ipv4.addresses", f"{ip}/24",
+                "ipv4.gateway", gateway,
+                "ipv4.dns", dns or ""
+            ],
             check=True
         )
 
-        subprocess.run(["nmcli", "con", "down", wifi_con], check=True)
-        subprocess.run(["nmcli", "con", "up", wifi_con], check=True)
+        # 2️⃣ застосовуємо
+        subprocess.run(
+            ["nmcli", "con", "down", conn],
+            check=True
+        )
+        subprocess.run(
+            ["nmcli", "con", "up", conn],
+            check=True
+        )
 
-        return {"message": f"Статичний IP {STATIC_IP} застосовано"}
+        return jsonify(message="Статичний IP застосовано"), 200
 
     except Exception as e:
-        return {"message": f"Помилка: {e}"}, 500
+        return jsonify(error=str(e)), 500
 
 @app.route("/set_dhcp", methods=["POST"])
 def set_dhcp():

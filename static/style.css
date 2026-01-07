@@ -88,3 +88,45 @@ input {
   color: var(--text);
   font-size: 1rem;
 }
+
+.card {
+  background: #111;
+  padding: 1rem;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+}
+
+input {
+  width: 100%;
+  padding: 0.6rem;
+  margin-top: 0.3rem;
+  background: #1c1c1c;
+  border: 1px solid #333;
+  color: #fff;
+  border-radius: 8px;
+}
+
+button {
+  margin-top: 1rem;
+  width: 100%;
+  padding: 0.7rem;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-weight: bold;
+}
+
+button:disabled {
+  background: #333;
+  cursor: not-allowed;
+}
+
+.error {
+  color: #f87171;
+  margin-top: 0.5rem;
+}
+
+.hidden {
+  display: none;
+}
